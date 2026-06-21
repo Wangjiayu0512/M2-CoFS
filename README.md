@@ -71,6 +71,8 @@ The `whole` folder is used for image fusion testing, and the `patches` folder is
   args.mode = 'fusion' # only test image fusion
   args.mode = 'seg' # only test segmentation
   args.mode = 'both' # test both image fusion and segmentation
+
+
 ---
 
 ### 5. Citation
