@@ -4,7 +4,7 @@ Codes for ***Breaking Task Boundaries: A Unified Model for 3D Medical Image Fusi
 
 ------
 
-![pipline](pipeline.png)
+![pipline](pipeline.jpg)
 
 ------
 
