@@ -65,6 +65,12 @@ The `whole` folder is used for image fusion testing, and the `patches` folder is
 ### 4. Test:
 * Prepare test data: put the processed data in './test_img'<br>
 * Run ```python test.py```<br>
+* You can test image fusion and segmentation separately by setting the testing mode in `test.py`:<br>
+
+```python
+  args.mode = 'fusion' # only test image fusion
+  args.mode = 'seg' # only test segmentation
+  args.mode = 'both' # test both image fusion and segmentation
 ---
 
 ### 5. Citation
