@@ -41,10 +41,7 @@ class ConvBlock(nn.Module):
 
 
 class FusionNet(nn.Module):
-    """
-    using Residual connection
-    上一层的输入作为下一层的输入
-    """
+
     def __init__(self):
         super(FusionNet, self).__init__()
         self.conv0 = ConvBlock(32, 16)
@@ -70,29 +67,7 @@ class FusionNet(nn.Module):
         return out
 
 class WeightMLPWGN(nn.Module):
-    """
-    WGN for Stage III.
 
-    输入：
-        theta_f     : Stage I 的 MIF 权重，即融合任务权重 theta_F，作为残差基底
-        theta_s2f   : Stage II 的 MIS -> MIF 权重，即 theta_{S->F}
-        theta_f2s   : Stage II 的 MIF -> MIS 权重，即 theta_{F->S}
-
-    输出：
-        theta_u     : unified weight theta_U
-
-    设计：
-        1. 只处理 feature fusion module 的权重，也就是 FusionNet 的权重。
-        2. 对每一层参数，flatten 成 1D。
-        3. 将 theta_{S->F} 和 theta_{F->S} 的对应位置拼成 2-channel：
-              [num_params, 2]
-        4. 送入 MLP，输出 [num_params, 1]，相当于 channel-wise 2-to-1。
-        5. 输出 reshape 回原来的参数形状。
-        6. 加到 theta_F 上作为残差：
-              theta_U = theta_F + delta_theta
-        7. 最后一层 MLP 全 0 初始化，因此初始 delta_theta = 0，
-           即初始 theta_U = theta_F。
-    """
 
     def __init__(self, base_model, theta_f, theta_s2f, theta_f2s,
                  hidden_dim=64, chunk_size=262144):
@@ -135,8 +110,7 @@ class WeightMLPWGN(nn.Module):
 
             self.num_layers += 1
 
-        # 2-channel -> 1-channel MLP
-        # 对每个参数位置独立做 2-to-1 映射
+
         self.weight_mlp = nn.Sequential(
             nn.Linear(2, hidden_dim),
             nn.ReLU(inplace=True),
@@ -148,20 +122,12 @@ class WeightMLPWGN(nn.Module):
         self._zero_init_output()
 
     def _zero_init_output(self):
-        """
-        让 WGN 初始输出全 0。
-        这样初始情况下：
-            theta_U = theta_F + 0
-        """
+
         last_layer = self.weight_mlp[-1]
         nn.init.zeros_(last_layer.weight)
         nn.init.zeros_(last_layer.bias)
 
     def _generate_delta_by_chunks(self, weight_s2f, weight_f2s):
-        """
-        对一层参数生成 delta。
-        使用 chunk 是为了避免大层参数一次性 flatten 后显存过高。
-        """
 
         flat_s2f = weight_s2f.reshape(-1)
         flat_f2s = weight_f2s.reshape(-1)
@@ -197,32 +163,12 @@ class WeightMLPWGN(nn.Module):
             theta_f = getattr(self, f'theta_f_{idx}')
             theta_s2f = getattr(self, f'theta_s2f_{idx}')
             theta_f2s = getattr(self, f'theta_f2s_{idx}')
-
-            # WGN 输出增量
             delta_theta = self._generate_delta_by_chunks(theta_s2f, theta_f2s)
 
-            # 残差连接，残差是融合任务权重 theta_F
-            theta_u = theta_f + delta_theta
 
-            generated_params[name] = theta_u
+            generated_params[name] = delta_theta
 
         return generated_params
-
-    def manifold_distance_loss(self, generated_params):
-
-        loss_m = 0.0
-
-        for idx, name in enumerate(self.param_names):
-            theta_u = generated_params[name]
-            theta_s2f = getattr(self, f'theta_s2f_{idx}')
-            theta_f2s = getattr(self, f'theta_f2s_{idx}')
-
-            loss_m = loss_m + torch.mean((theta_u - theta_s2f) ** 2)
-            loss_m = loss_m + torch.mean((theta_u - theta_f2s) ** 2)
-
-        loss_m = loss_m / self.num_layers
-
-        return loss_m
 
 
 if __name__ == '__main__':
